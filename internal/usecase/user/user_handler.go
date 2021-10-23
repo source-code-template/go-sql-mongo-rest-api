@@ -2,11 +2,10 @@ package user
 
 import (
 	"context"
-	"net/http"
-	"reflect"
-
 	"github.com/core-go/search"
 	sv "github.com/core-go/service"
+	"net/http"
+	"reflect"
 )
 
 type UserHandler interface {

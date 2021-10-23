@@ -14,12 +14,12 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"reflect"
 
-	"go-service/internal/usecase/user"
+	. "go-service/internal/usecase/user"
 )
 
 type ApplicationContext struct {
 	HealthHandler *health.Handler
-	UserHandler   user.UserHandler
+	UserHandler   UserHandler
 }
 
 func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
@@ -33,10 +33,11 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 	}
 	logError := log.ErrorMsg
 	status := sv.InitializeStatus(root.Status)
+	validator := v.NewValidator()
 
 	var userRepository sv.Repository
 	var searchUser func(context.Context, interface{}, interface{}, int64,...int64) (int64, string, error)
-	userType := reflect.TypeOf(user.User{})
+	userType := reflect.TypeOf(User{})
 	if root.Provider != "mongo" {
 		userQueryBuilder := query.NewBuilder(db, "users", userType)
 		userSearchBuilder, err := q.NewSearchBuilder(db, userType, userQueryBuilder.BuildQuery)
@@ -54,9 +55,8 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 		searchUser = userSearchBuilder.Search
 		userRepository = mgo.NewRepository(mongoDb, "users", userType)
 	}
-	userService := user.NewUserService(userRepository)
-	validator := v.NewValidator()
-	userHandler := user.NewUserHandler(searchUser, userService, status, validator.Validate, logError)
+	userService := NewUserService(userRepository)
+	userHandler := NewUserHandler(searchUser, userService, status, validator.Validate, logError)
 
 	sqlChecker := q.NewHealthChecker(db)
 	mongoChecker := mgo.NewHealthChecker(mongoDb)
