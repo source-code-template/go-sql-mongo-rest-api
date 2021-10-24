@@ -33,10 +33,11 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 	}
 	logError := log.ErrorMsg
 	status := sv.InitializeStatus(root.Status)
+	action := sv.InitializeAction(root.Action)
 	validator := v.NewValidator()
 
 	var userRepository sv.Repository
-	var searchUser func(context.Context, interface{}, interface{}, int64,...int64) (int64, string, error)
+	var searchUser func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error)
 	userType := reflect.TypeOf(User{})
 	if root.Provider != "mongo" {
 		userQueryBuilder := query.NewBuilder(db, "users", userType)
@@ -56,7 +57,7 @@ func NewApp(ctx context.Context, root Root) (*ApplicationContext, error) {
 		userRepository = mgo.NewRepository(mongoDb, "users", userType)
 	}
 	userService := NewUserService(userRepository)
-	userHandler := NewUserHandler(searchUser, userService, status, validator.Validate, logError)
+	userHandler := NewUserHandler(searchUser, userService, status, logError, validator.Validate, &action)
 
 	sqlChecker := q.NewHealthChecker(db)
 	mongoChecker := mgo.NewHealthChecker(mongoDb)

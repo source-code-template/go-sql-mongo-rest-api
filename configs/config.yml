@@ -29,3 +29,9 @@ status:
   version_error: 2
   validation_error: 4
   error: 4
+
+action:
+  create: create
+  update: update
+  patch: patch
+  delete: delete

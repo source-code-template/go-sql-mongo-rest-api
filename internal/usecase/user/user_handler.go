@@ -17,23 +17,18 @@ type UserHandler interface {
 	Delete(w http.ResponseWriter, r *http.Request)
 }
 
-func NewUserHandler(find func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error), service UserService, status sv.StatusConfig, validate func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error), logError func(context.Context, string)) UserHandler {
+func NewUserHandler(find func(context.Context, interface{}, interface{}, int64, ...int64) (int64, string, error), service UserService, status sv.StatusConfig, logError func(context.Context, string), validate func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error), action *sv.ActionConfig) UserHandler {
 	searchModelType := reflect.TypeOf(UserFilter{})
 	modelType := reflect.TypeOf(User{})
-	keys, indexes, _ := sv.BuildHandlerParams(modelType)
-	searchHandler := search.NewJSONSearchHandler(find, modelType, searchModelType, logError, nil)
-	return &userHandler{SearchHandler: searchHandler, service: service, keys: keys, indexes: indexes, modelType: modelType, Status: status, Validate: validate, Error: logError}
+	params := sv.CreateParams(modelType, &status, logError, validate, action)
+	searchHandler := search.NewSearchHandler(find, modelType, searchModelType, logError, params.Log)
+	return &userHandler{service: service, SearchHandler: searchHandler, Params: params}
 }
 
 type userHandler struct {
+	service UserService
 	*search.SearchHandler
-	service   UserService
-	keys      []string
-	indexes   map[string]int
-	modelType reflect.Type
-	Status    sv.StatusConfig
-	Validate  func(ctx context.Context, model interface{}) ([]sv.ErrorMessage, error)
-	Error     func(context.Context, string)
+	*sv.Params
 }
 
 func (h *userHandler) Load(w http.ResponseWriter, r *http.Request) {
@@ -48,31 +43,31 @@ func (h *userHandler) Create(w http.ResponseWriter, r *http.Request) {
 	er1 := sv.Decode(w, r, &user)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &user)
-		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, nil) {
+		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Create) {
 			result, er3 := h.service.Create(r.Context(), &user)
-			sv.AfterCreated(w, r, &user, result, er3, h.Status, h.Error, nil)
+			sv.AfterCreated(w, r, &user, result, er3, h.Status, h.Error, h.Log, h.Resource, h.Action.Create)
 		}
 	}
 }
 func (h *userHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var user User
-	er1 := sv.DecodeAndCheckId(w, r, &user, h.keys, h.indexes)
+	er1 := sv.DecodeAndCheckId(w, r, &user, h.Keys, h.Indexes)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &user)
-		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, nil) {
+		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Update) {
 			result, er3 := h.service.Update(r.Context(), &user)
-			sv.HandleResult(w, r, &user, result, er3, h.Status, h.Error, nil)
+			sv.HandleResult(w, r, &user, result, er3, h.Status, h.Error, h.Log, h.Resource, h.Action.Update)
 		}
 	}
 }
 func (h *userHandler) Patch(w http.ResponseWriter, r *http.Request) {
 	var user User
-	r, json, er1 := sv.BuildMapAndCheckId(w, r, &user, h.keys, h.indexes)
+	r, json, er1 := sv.BuildMapAndCheckId(w, r, &user, h.Keys, h.Indexes)
 	if er1 == nil {
 		errors, er2 := h.Validate(r.Context(), &user)
-		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, nil) {
+		if !sv.HasError(w, r, errors, er2, *h.Status.ValidationError, h.Error, h.Log, h.Resource, h.Action.Patch) {
 			result, er3 := h.service.Patch(r.Context(), json)
-			sv.HandleResult(w, r, json, result, er3, h.Status, h.Error, nil)
+			sv.HandleResult(w, r, json, result, er3, h.Status, h.Error, h.Log, h.Resource, h.Action.Patch)
 		}
 	}
 }
@@ -80,6 +75,6 @@ func (h *userHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := sv.GetRequiredParam(w, r)
 	if len(id) > 0 {
 		result, err := h.service.Delete(r.Context(), id)
-		sv.HandleDelete(w, r, result, err, h.Error, nil)
+		sv.HandleDelete(w, r, result, err, h.Error, h.Log, h.Resource, h.Action.Delete)
 	}
 }
